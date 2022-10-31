@@ -11,10 +11,15 @@ All demos require the following on your machine:
 * [MySQL CLI client][mysql-client]
 
 ## Use Cases
+
+* [Split Reads and Writes][#split-reads-and-writes]
+* [Shard Schema][#shard-schema]
+* [Shard Data][#shard-data]
+
 ### Split Reads and Writes
 Uses a two node cluster to split reads and writes. Writes will go to the primary node while reads will go to the replica.
 
-### Usage
+#### Usage
 From the [`split-read-write`](./split-read-write) directory, start the containers:
 
 ```bash
@@ -88,6 +93,18 @@ ProxySQL Admin>SELECT hostgroup, schemaname, username, digest_text FROM stats_my
 +-----------+------------+----------+-----------------------------------------+
 ```
 What we see here is that the `SELECT` (a read) was handled by group 20 whereas the `UPDATE` (a write) was handled by group 10.
+
+### Shard Schema
+Uses a two node cluster to redirect queries to entirely different schemas, hosted on dedicated nodes.
+
+#### Usage
+TBC
+
+### Shard Data
+Uses a three node cluster to redirect queries to appropriate nodes hosting a shard of a given set of data.
+
+#### Usage
+TBC
 
 [docker]: https://docs.docker.com/get-docker/
 [docker-compose]: https://docs.docker.com/compose/install/
