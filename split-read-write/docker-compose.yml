@@ -1,0 +1,32 @@
+version: "3.9"
+services:
+  proxysql:
+    ports:
+      - "16032:6032"
+      - "16033:6033"
+      - "16070:6070"
+    volumes:
+      - ./proxysql.cnf:/etc/proxysql.cnf
+    image: proxysql/proxysql
+    depends_on:
+      - "mysql_primary"
+      - "mysql_replica"
+  mysql_primary:
+    environment:
+      MYSQL_ROOT_PASSWORD: toor
+      MYSQL_DATABASE: rwsplit
+      MYSQL_USER: app
+      MYSQL_PASSWORD: foobar
+    image: mysql:5.7
+    volumes:
+      - ../data:/docker-entrypoint-initdb.d
+  mysql_replica:
+    environment:
+      MYSQL_ROOT_PASSWORD: toor
+      MYSQL_USER: app
+      MYSQL_PASSWORD: foobar
+    image: mysql:5.7
+    volumes:
+      - ./replica.cnf:/etc/mysql/conf.d/replica.cnf
+    depends_on:
+      - "mysql_primary"
