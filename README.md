@@ -12,9 +12,9 @@ All demos require the following on your machine:
 
 ## Use Cases
 
-* [Split Reads and Writes][#split-reads-and-writes]
-* [Shard Schema][#shard-schema]
-* [Shard Data][#shard-data]
+* [Split Reads and Writes](#split-reads-and-writes)
+* [Shard Schema](#shard-schema)
+* [Shard Data](#shard-data)
 
 ### Split Reads and Writes
 Uses a two node cluster to split reads and writes. Writes will go to the primary node while reads will go to the replica.
