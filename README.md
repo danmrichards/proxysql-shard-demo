@@ -95,10 +95,98 @@ ProxySQL Admin>SELECT hostgroup, schemaname, username, digest_text FROM stats_my
 What we see here is that the `SELECT` (a read) was handled by group 20 whereas the `UPDATE` (a write) was handled by group 10.
 
 ### Shard Schema
-Uses a two node cluster to redirect queries to entirely different schemas, hosted on dedicated nodes.
+Uses a two node cluster to redirect queries to entirely different schemas, hosted on dedicated nodes. Two schemas have been created:
+
+* `shared`
+* `superdupergames`
+
+This is simulating the idea that a specific customer may have their data moved to a specific set of MySQL node(s) for performance reasons.
 
 #### Usage
-TBC
+From the [`schema-based`](./schema-based) directory, start the containers:
+
+```bash
+$ docker-compose up -d
+```
+
+Open a MySQL client session:
+
+```
+$ mysql -h127.0.0.1 -P16033 -uapp -p
+```
+> Default password is `foobar`
+
+Open a ProxySQL admin session:
+```bash
+$ mysql -h127.0.0.1 -P16032 -upadmin -p --prompt "ProxySQL Admin>"
+```
+> Default password is `padmin`
+
+In the admin session, get the list of MySQL servers like so:
+
+```
+ProxySQL Admin>SELECT * FROM mysql_servers;
++--------------+-------------+------+-----------+--------+--------+-------------+-----------------+---------------------+---------+----------------+---------+
+| hostgroup_id | hostname    | port | gtid_port | status | weight | compression | max_connections | max_replication_lag | use_ssl | max_latency_ms | comment |
++--------------+-------------+------+-----------+--------+--------+-------------+-----------------+---------------------+---------+----------------+---------+
+| 10           | mysql_node0 | 3306 | 0         | ONLINE | 1      | 0           | 200             | 0                   | 0       | 0              |         |
+| 20           | mysql_node1 | 3306 | 0         | ONLINE | 1      | 0           | 200             | 0                   | 0       | 0              |         |
++--------------+-------------+------+-----------+--------+--------+-------------+-----------------+---------------------+---------+----------------+---------+
+```
+You should see two servers, one in each hostgroup (10 and 20). Rules have been configured to send queries for the `shared`
+
+In the normal client session, run two queries; one against each schema:
+```
+mysql> SELECT * FROM shared.machines;
++----+------------+---------+-----------+---------+
+| id | customerid | name    | ip        | deleted |
++----+------------+---------+-----------+---------+
+|  1 |          1 | dms-001 | 1.2.3.4   |       0 |
+|  2 |          1 | dms-002 | 2.3.4.5   |       0 |
+|  3 |          1 | dms-003 | 3.4.5.6   |       0 |
+|  4 |          2 | sdg-001 | 6.7.8.9   |       0 |
+|  5 |          2 | sdg-002 | 7.8.9.10  |       0 |
+|  6 |          2 | sdg-003 | 8.9.10.11 |       0 |
++----+------------+---------+-----------+---------+
+
+mysql> use superdupergames;
+Reading table information for completion of table and column names
+You can turn off this feature to get a quicker startup with -A
+
+Database changed
+mysql> SELECT * FROM machines;
++----+------------+---------+-----------+---------+
+| id | customerid | name    | ip        | deleted |
++----+------------+---------+-----------+---------+
+|  1 |          1 | dms-001 | 1.2.3.4   |       0 |
+|  2 |          1 | dms-002 | 2.3.4.5   |       0 |
+|  3 |          1 | dms-003 | 3.4.5.6   |       0 |
+|  4 |          2 | sdg-001 | 6.7.8.9   |       0 |
+|  5 |          2 | sdg-002 | 7.8.9.10  |       0 |
+|  6 |          2 | sdg-003 | 8.9.10.11 |       0 |
++----+------------+---------+-----------+---------+
+6 rows in set (0.00 sec)
+```
+As far as the client is concerned, these queries worked as you'd expect. The data was read. But behind the scenes, ProxySQL has done the heavy lifting of directing these queries to the appropriate nodes.
+
+To validate this, we can look at the [ProxySQL query digest][query-digest]. On the ProxySQL admin session run this query:
+```
+ProxySQL Admin>SELECT hostgroup, schemaname, username, digest_text FROM stats_mysql_query_digest;
++-----------+--------------------+----------+----------------------------------------+
+| hostgroup | schemaname         | username | digest_text                            |
++-----------+--------------------+----------+----------------------------------------+
+| 20        | superdupergames    | app      | SELECT * FROM machines                 |
+| 20        | superdupergames    | app      | SELECT * FROM `machines` WHERE ?=?     |
+| 20        | superdupergames    | app      | SELECT * FROM `customers` WHERE ?=?    |
+| 20        | superdupergames    | app      | show databases                         |
+| 10        | information_schema | app      | SELECT DATABASE()                      |
+| 10        | information_schema | app      | SELECT * FROM superdupergames.machines |
+| 20        | superdupergames    | app      | show tables                            |
+| 10        | information_schema | app      | SELECT * FROM shared.machines          |
+| 10        | information_schema | app      | select @@version_comment limit ?       |
++-----------+--------------------+----------+----------------------------------------+
+```
+What we see here is that the query against the `shared` schema was handled by host group 10 (node0) and the query against the `superdupergames` schema was handled by host group 20 (node1).
 
 ### Shard Data
 Uses a three node cluster to redirect queries to appropriate nodes hosting a shard of a given set of data.
