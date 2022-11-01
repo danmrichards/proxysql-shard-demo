@@ -19,13 +19,15 @@ services:
       MYSQL_PASSWORD: foobar
     image: mysql:5.7
     volumes:
-      - ./data:/docker-entrypoint-initdb.d
+      - ./data/01-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./data/02-seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
   mysql_node1:
     environment:
       MYSQL_ROOT_PASSWORD: toor
-      MYSQL_DATABASE: superdupergames
+      MYSQL_DATABASE: acmeinc
       MYSQL_USER: app
       MYSQL_PASSWORD: foobar
     image: mysql:5.7
     volumes:
-      - ./data:/docker-entrypoint-initdb.d
+      - ./data/01-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./data/03-acme.sql:/docker-entrypoint-initdb.d/03-acme.sql
